@@ -120,6 +120,7 @@ app.get('/event-details', async (req, res) => {
       const data = response.data;
       console.log(data);
       
+      
       j['date'] = data._embedded.events[0].dates.start.localDate + " " + data._embedded.events[0].dates.start.localTime;
       if(j['date'] != 'Undefined' || j['date'] != 'Undfined Undefined'){
         j['date_stat'] = true;
@@ -136,7 +137,12 @@ app.get('/event-details', async (req, res) => {
         j['name_stat'] = false;
       }
 
+      try{
       j['seatmap'] = data._embedded.events[0].seatmap.staticUrl;
+      }
+      catch(err){
+        console.log(err);
+      }
       if(j['seatmap'] != ' '){
         j['seatmap_stat'] = true;
       }
@@ -281,24 +287,9 @@ app.get('/event-details', async (req, res) => {
         .then(function(data) {
             const t ={};
             t['name'] = data.body.artists.items[0].name;
-            // console.log(t);
-            var temp_fol = '';
-            var fol_str = data.body.artists.items[1].followers.total.toString();
-            // console.log(fol_str);
-            // console.log(fol_str.length);
-            for(var j=0;j < fol_str.length-2; j+=3){
-
-                temp_fol += fol_str[j] + fol_str[j+1] + fol_str[j+2] + ",";
-            }
-            var num = data.body.artists.items[1].followers.total % 3;
-            if (num == 1){
-                temp_fol += fol_str[-1];
-            }
-            else if (num == 2){
-                temp_fol += fol_str[-1] + fol_str[-2];
-            }
             t['images'] = data.body.artists.items[0].images[0];
-            t['followers'] = temp_fol;
+            t['followers'] = new Intl.NumberFormat().format(data.body.artists.items[1].followers.total);
+            console.log(t['followers']);
             t['popularity'] = data.body.artists.items[1].popularity;
             t['spotifylink'] = data.body.artists.items[1].external_urls.spotify;
             t['id'] = data.body.artists.items[0].id;
@@ -325,10 +316,13 @@ app.get('/event-details', async (req, res) => {
             .then(function(data) {
                 var temp2 = [];
                 // console.log('Artist albums', data.body);
-                // console.log(data.body.items[0]);
+                console.log(data.body.items[0]);
                 temp2.push(data.body.items[0]);
+                results[1][i]['image1'] = data.body.items[0].images[0].url;
                 temp2.push(data.body.items[1]);
+                results[1][i]['image2'] = data.body.items[1].images[0].url;
                 temp2.push(data.body.items[2]);
+                results[1][i]['image3'] = data.body.items[2].images[0].url;
                 temp1.push(temp2);
             }, function(err) {
                 console.error(err);
@@ -338,7 +332,7 @@ app.get('/event-details', async (req, res) => {
     results.push(temp1);
 
     console.log(2);
-    // console.log(results);
+    console.log(results);
     res.send(results);
     //   res.json(data._embedded);
     
@@ -346,6 +340,7 @@ app.get('/event-details', async (req, res) => {
   
 app.get('/venue', async (req, res) => {
     const name = req.query.name;
+    console.log(name);
     const params = {
       apikey,
       keyword: name
@@ -355,8 +350,107 @@ app.get('/venue', async (req, res) => {
         params
       });
       const data = response.data;
-      console.log(data);
-      res.json(data._embedded);
+      console.log(data._embedded);
+      var temp = {};
+      temp['name'] = '';
+      temp['address'] = '';
+      temp['phone'] = '';
+      temp['child'] = '';
+      temp['open'] = '';
+      temp['general'] = '';
+
+
+      temp['name'] = data._embedded.venues[0].name;
+
+      var street = '';
+      var city = '';
+      var state = '';
+      try{
+      street = data._embedded.venues[0].address.line1;
+      }
+      catch(err){
+        console.log(err);
+      }
+      try{
+      city = data._embedded.venues[0].city.name;
+      }
+      catch(err){
+        console.log(err);
+      }
+
+      try{
+      state = data._embedded.venues[0].state.name;
+      }
+      catch(err){
+        console.log(err);
+      }
+      temp['address'] = street + "," + city + "," + state;
+      if(city === '' && city === '' && state === ''){
+        temp['address_stat'] = false;
+        temp['address'] = '';
+      }
+      else{
+        temp['address_stat'] = true;
+      }
+
+      try{
+      temp['phone'] = data._embedded.venues[0].boxOfficeInfo.phoneNumberDetail;
+      }
+      catch(err){
+        console.log(err);
+      }
+      if(temp['phone'] != ''){
+        temp['phone_stat'] = true;
+      }
+      else{
+        temp['phone_stat'] = false;
+      }
+
+      try{
+        temp['open'] = data._embedded.venues[0].boxOfficeInfo.openHoursDetail;
+      }
+      catch(err){
+        console.log(err);
+      }
+      if(temp['open'] != ''){
+        temp['open_stat'] = true;
+      }
+      else{
+        temp['open_stat'] = false;
+      }
+
+      try{
+        temp['general'] = data._embedded.venues[0].generalInfo.generalRule;
+      }
+      catch(err){
+        console.log(err);
+      }
+      if(temp['general'] != ''){
+        temp['general_stat'] = true;
+      }
+      else{
+        temp['general_stat'] = false;
+      }
+
+      try{
+        temp['child'] = data._embedded.venues[0].generalInfo.childlRule;
+      }
+      catch(err){
+        console.log(err);
+      }
+      if(temp['child'] != ''){
+        temp['child_stat'] = true;
+      }
+      else{
+        temp['child_stat'] = false;
+      }
+
+      const results = [];
+      console.log(temp);
+      results.push(temp);
+      console.log(results);
+
+      res.send(results);
     } catch (error) {
       console.error(error);
       res.status(500).send('An error occurred');
