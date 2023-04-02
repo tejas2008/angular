@@ -2,41 +2,44 @@ const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
 const app = express();
-const path = require('path');
 const geohash = require('ngeohash');
-var SpotifyWebApi = require('spotify-web-api-node');
 
+var SpotifyWebApi = require('spotify-web-api-node');
 const apikey = 'tq0h0AxKNGzhMAXGGc11qhF2MixMR3Z0';
+var spotifyApi = new SpotifyWebApi({
+  clientId: '2d71a36ce01e4910b40655c166f89b4d',
+  clientSecret: '31db8f9fef4642599aa7be5227c71482',
+  redirectUri: 'http://localhost/'
+});
+spotifyApi.clientCredentialsGrant().then(
+  function(data) {
+    console.log('The access token expires in ' + data.body['expires_in']);
+    console.log('The access token is ' + data.body['access_token']);
+
+    // Save the access token so that it's used in future calls
+    spotifyApi.setAccessToken(data.body['access_token']);
+  },
+  function(err) {
+    console.log('Something went wrong when retrieving an access token', err);
+  }
+);
+
 app.use(express.json());
 app.use(cors());
-app.use(express.static(path.join(process.cwd(), 'public', 'static', 'dist', 'events')));
 
-var spotifyApi = new SpotifyWebApi({
-    clientId: '2d71a36ce01e4910b40655c166f89b4d',
-    clientSecret: '31db8f9fef4642599aa7be5227c71482',
-    redirectUri: 'http://localhost/'
-  });
+const port = process.env.PORT || 4000;
 
-  spotifyApi.clientCredentialsGrant().then(
-    function(data) {
-      console.log('The access token expires in ' + data.body['expires_in']);
-      console.log('The access token is ' + data.body['access_token']);
-  
-      // Save the access token so that it's used in future calls
-      spotifyApi.setAccessToken(data.body['access_token']);
-    },
-    function(err) {
-      console.log('Something went wrong when retrieving an access token', err);
-    }
-  );
+app.set('view engine','ejs');
 
-
+app.listen(port,()=>{
+    console.log("Running on port: " + port)
+});
 
 app.get("/autocomplete",async (req,res)=>{
     
     const keyword = req.query.keyword;
     console.log(keyword)
-    const apikey = "";
+    const apikey = "tq0h0AxKNGzhMAXGGc11qhF2MixMR3Z0";
     const autocomplete_res = await axios({
         url: `https://app.ticketmaster.com/discovery/v2/suggest?apikey=${apikey}&keyword=${keyword}`
     })
@@ -49,7 +52,6 @@ app.get("/autocomplete",async (req,res)=>{
         })
     }
 })
-
 
 app.get('/events', async (req, res) => {
     console.log("enter bnackend");
@@ -96,9 +98,7 @@ app.get('/events', async (req, res) => {
         console.log(error);
       res.status(500).json({ message: 'Internal server error' });
     }
-  });
-
-
+});
 
 app.get('/event-details', async (req, res) => {
     console.log('details api entered');
@@ -167,6 +167,7 @@ app.get('/event-details', async (req, res) => {
       }
       else{
         art = data._embedded.events[0]._embedded.attractions[0].name;
+        artists.push(art)
       }
       j['artist'] = art;
       console.log(art);
@@ -177,7 +178,12 @@ app.get('/event-details', async (req, res) => {
         j['artist_stat'] = false;
       }
 
+      try{
       j['venue'] = data._embedded.events[0]._embedded.venues[0].name;
+    }
+    catch(err){
+      console.log(err);
+    }
       if(j['venue'] != ' '){
         j['venue_stat'] = true;
       }
@@ -185,7 +191,12 @@ app.get('/event-details', async (req, res) => {
         j['venue_stat'] = false;
       }
 
+      try{
       j['price'] = data._embedded.events[0].priceRanges[0].min + " - " + data._embedded.events[0].priceRanges[0].max ;
+    }
+    catch(err){
+      console.log(err);
+    }
       if(j['price'] != ' '){
         j['price_stat'] = true;
       }
@@ -193,7 +204,12 @@ app.get('/event-details', async (req, res) => {
         j['price_stat'] = false;
       }
 
+      try{
       j['ticket'] = data._embedded.events[0].dates.status.code ;
+    }
+    catch(err){
+      console.log(err);
+    }
       if(j['ticket'] != ' '){
         j['ticket_stat'] = true;
         if(j['ticket'] === 'onsale'){
@@ -280,18 +296,19 @@ app.get('/event-details', async (req, res) => {
       results.push([j]);
       
       
-    //   console.log(artists);
+      console.log("artdtyt6y",artists);
       const temp = [];
       for (var i=0; i<artists.length; i++){
+
       await spotifyApi.searchArtists(artists[i])
         .then(function(data) {
             const t ={};
             t['name'] = data.body.artists.items[0].name;
             t['images'] = data.body.artists.items[0].images[0];
-            t['followers'] = new Intl.NumberFormat().format(data.body.artists.items[1].followers.total);
+            t['followers'] = new Intl.NumberFormat().format(data.body.artists.items[0].followers.total);
             console.log(t['followers']);
-            t['popularity'] = data.body.artists.items[1].popularity;
-            t['spotifylink'] = data.body.artists.items[1].external_urls.spotify;
+            t['popularity'] = data.body.artists.items[0].popularity;
+            t['spotifylink'] = data.body.artists.items[0].external_urls.spotify;
             t['id'] = data.body.artists.items[0].id;
             console.log(t);
             temp.push(t);
@@ -310,7 +327,7 @@ app.get('/event-details', async (req, res) => {
     // console.log(results);
 
     var temp1 = [];
-    // console.log(results);
+    // console.log("672356487",artists);
     for (var i=0; i<results[1].length; i++){
         await spotifyApi.getArtistAlbums(results[1][i].id)
             .then(function(data) {
@@ -336,7 +353,7 @@ app.get('/event-details', async (req, res) => {
     res.send(results);
     //   res.json(data._embedded);
     
-  });
+});
   
 app.get('/venue', async (req, res) => {
     const name = req.query.name;
@@ -358,6 +375,8 @@ app.get('/venue', async (req, res) => {
       temp['child'] = '';
       temp['open'] = '';
       temp['general'] = '';
+      temp['lat'] = '';
+      temp['lng'] = '';
 
 
       temp['name'] = data._embedded.venues[0].name;
@@ -445,6 +464,10 @@ app.get('/venue', async (req, res) => {
         temp['child_stat'] = false;
       }
 
+      temp['lng'] = data._embedded.venues[0].location.longitude;
+      temp['lat'] = data._embedded.venues[0].location.latitude;
+      temp['loc'] = {'lat': temp['lat'], lng: temp['lng']};
+
       const results = [];
       console.log(temp);
       results.push(temp);
@@ -455,22 +478,4 @@ app.get('/venue', async (req, res) => {
       console.error(error);
       res.status(500).send('An error occurred');
     }
-  });
-  
-  app.listen(3000, () => {
-    console.log('Server started on port 3000');
-  });  
-  
-  
-  
-  
-  
-
-const port = parseInt(process.env.PORT) || 4000;
-app.set('view engine','ejs')
-app.listen(port,()=>{
-    console.log("Running on port: " + port)
-})
-
-
-
+});
